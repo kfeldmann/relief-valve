@@ -28,7 +28,7 @@ General usage:
     |   upstream      |           |   downstream    |
     |    service      |  +-----+  |    service      |
     |   producing     |->| rv  |->|   consuming     |
-    |    output       |  +--+--+  |     stream      |
+    |     data        |  +--+--+  |      data       |
     |                 |     |     |                 |
     +-----------------+     |     +-----------------+
                             |
