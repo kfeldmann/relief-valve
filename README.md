@@ -6,8 +6,10 @@ a component in the pipeline might block, and stop the whole pipeline.
 
 It might be nice to buffer the stream until the downstream component
 unblocks so that upstream services can keep doing their jobs. In fact,
-it might even be more valuable to throw data away rather than to stop
-the upstream service.
+depending on the service, it might even be more valuable to throw data
+away rather than to stop the upstream service (e.g. maybe the service
+is a critical web application and the data stream that is blocking is
+just for analytics, etc.).
 
 Rv does three things:
 
