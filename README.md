@@ -13,16 +13,16 @@ just for analytics, etc.).
 
 Rv does three things:
 
-- It will buffer data for a while and then write
+- Buffer data for a while and then write
   it downstream as soon as it can
-- It will send error messages on a different channel
+- Send error messages on a different channel
   when the downstream is blocking
-- It will continue reading from upstream no matter
+- Continue reading from upstream no matter
   what, even if it means throwing that data away
   (e.g. if the downstream is still blocking and the
   internal buffer is full)
 
-General usage:
+##General usage:
 
 ```
 Usage: rv < input_stream > ouput_stream 2> error_stream
