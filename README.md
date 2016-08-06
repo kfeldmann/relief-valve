@@ -25,6 +25,8 @@ Rv does three things:
 General usage:
 
 ```
+Usage: rv < input_stream > ouput_stream 2> error_stream
+
     +-----------------+           +-----------------+
     |                 |           |                 |
     |   upstream      |           |   downstream    |
