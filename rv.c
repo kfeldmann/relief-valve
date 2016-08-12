@@ -37,9 +37,6 @@
 */
 
 
-#include <sys/types.h> /* open */
-#include <sys/stat.h> /* open */
-#include <fcntl.h> /* open */
 #include <stdlib.h> /* exit */
 #include <unistd.h> /* getpid */
 #include <stdio.h> /* stdin, stdout, stderr */
