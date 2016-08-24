@@ -56,13 +56,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 int
 max_int (int *ints, int intcount)
 {
-	int maxint = INT_MIN;
-	int i;
-	for (i = 0; i < intcount; i++)
-	{
-		if (ints[i] > maxint) maxint = ints[i];
-	}
-	return maxint;
+    int maxint = INT_MIN;
+    int i;
+    for (i = 0; i < intcount; i++)
+    {
+        if (ints[i] > maxint) maxint = ints[i];
+    }
+    return maxint;
 }
 
 
@@ -84,51 +84,51 @@ max_int (int *ints, int intcount)
 int
 read_readable (int *fds, int fdcount, int timeoutsec, char_buffer_t *ls_buffer)
 {
-	fd_set readfds, errorfds;
-	struct timeval timeout;
-	int i, readycount;
+    fd_set readfds, errorfds;
+    struct timeval timeout;
+    int i, readycount;
     int status;
 
-	FD_ZERO (&readfds);
-	FD_ZERO (&errorfds);
-	for (i = 0; i < fdcount; i++)
-	{
-		FD_SET (fds[i], &readfds);
-		FD_SET (fds[i], &errorfds);
-	}
-	timeout.tv_sec = timeoutsec;
-	timeout.tv_usec = 0;
+    FD_ZERO (&readfds);
+    FD_ZERO (&errorfds);
+    for (i = 0; i < fdcount; i++)
+    {
+        FD_SET (fds[i], &readfds);
+        FD_SET (fds[i], &errorfds);
+    }
+    timeout.tv_sec = timeoutsec;
+    timeout.tv_usec = 0;
 
-	readycount = select (max_int(fds, fdcount) + 1,
-	  &readfds, NULL, &errorfds, &timeout);
-	if (readycount == -1)
-	{
-		if (errno != EAGAIN && errno != EINTR)
-		{
-			return -1;
-		}
-		else
-		{
-			return -3;
-		}
-	}
-	if (readycount == 0) return -3;
-	if (readycount > 0)
-	{
-		for (i = 0; i < fdcount; i++)
-		{
-			if (FD_ISSET (fds[i], &errorfds)) return fds[i];
-			if (FD_ISSET (fds[i], &readfds))
-			{
-				status = read_fd_into_char_buffer (ls_buffer, fds[i]);
-				if (status == -1)
-				{ return -2; }
-				else if (status != 0)
-				{ return fds[i]; }
-			}
-		}
-	}
-	return 0;
+    readycount = select (max_int(fds, fdcount) + 1,
+      &readfds, NULL, &errorfds, &timeout);
+    if (readycount == -1)
+    {
+        if (errno != EAGAIN && errno != EINTR)
+        {
+            return -1;
+        }
+        else
+        {
+            return -3;
+        }
+    }
+    if (readycount == 0) return -3;
+    if (readycount > 0)
+    {
+        for (i = 0; i < fdcount; i++)
+        {
+            if (FD_ISSET (fds[i], &errorfds)) return fds[i];
+            if (FD_ISSET (fds[i], &readfds))
+            {
+                status = read_fd_into_char_buffer (ls_buffer, fds[i]);
+                if (status == -1)
+                { return -2; }
+                else if (status != 0)
+                { return fds[i]; }
+            }
+        }
+    }
+    return 0;
 }
 
 
@@ -150,51 +150,51 @@ read_readable (int *fds, int fdcount, int timeoutsec, char_buffer_t *ls_buffer)
 int
 write_writable (int *fds, int fdcount, int timeoutsec, char_buffer_t *ls_buffer)
 {
-	fd_set writefds, errorfds;
-	struct timeval timeout;
-	int i, readycount;
-	ssize_t byteswritten;
+    fd_set writefds, errorfds;
+    struct timeval timeout;
+    int i, readycount;
+    ssize_t byteswritten;
     ssize_t contlen;
 
-	FD_ZERO (&writefds);
-	FD_ZERO (&errorfds);
-	for (i = 0; i < fdcount; i++)
-	{
-		FD_SET (fds[i], &writefds);
-		FD_SET (fds[i], &errorfds);
-	}
-	timeout.tv_sec = timeoutsec;
-	timeout.tv_usec = 0;
+    FD_ZERO (&writefds);
+    FD_ZERO (&errorfds);
+    for (i = 0; i < fdcount; i++)
+    {
+        FD_SET (fds[i], &writefds);
+        FD_SET (fds[i], &errorfds);
+    }
+    timeout.tv_sec = timeoutsec;
+    timeout.tv_usec = 0;
 
-	contlen = get_char_buffer_contlen (ls_buffer);
+    contlen = get_char_buffer_contlen (ls_buffer);
 
-	readycount = select (max_int(fds, fdcount) + 1,
-	  NULL, &writefds, &errorfds, &timeout);
-	if (readycount == -1)
-	{
-		if (errno != EAGAIN && errno != EINTR)
-		{ return -1; }
-		else
-		{ return -3; }
-	}
-	if (readycount == 0) return -3;
-	if (readycount > 0)
-	{
-		for (i = 0; i < fdcount; i++)
-		{
-			if (FD_ISSET (fds[i], &errorfds)) return -1;
-			if (FD_ISSET (fds[i], &writefds))
-			{
-				byteswritten = write (fds[i],
-				 get_char_buffer_read_ptr (ls_buffer),
-				 min(PIPE_BUF, contlen));
-				if (byteswritten == -1) return -1;
-				if (byteswritten == 0 && contlen > 0) return -3;
-				if (byteswritten < contlen)
-				{ return byteswritten; }
-			}
-		}
-	}
-	return 0;
+    readycount = select (max_int(fds, fdcount) + 1,
+      NULL, &writefds, &errorfds, &timeout);
+    if (readycount == -1)
+    {
+        if (errno != EAGAIN && errno != EINTR)
+        { return -1; }
+        else
+        { return -3; }
+    }
+    if (readycount == 0) return -3;
+    if (readycount > 0)
+    {
+        for (i = 0; i < fdcount; i++)
+        {
+            if (FD_ISSET (fds[i], &errorfds)) return -1;
+            if (FD_ISSET (fds[i], &writefds))
+            {
+                byteswritten = write (fds[i],
+                 get_char_buffer_read_ptr (ls_buffer),
+                 min(PIPE_BUF, contlen));
+                if (byteswritten == -1) return -1;
+                if (byteswritten == 0 && contlen > 0) return -3;
+                if (byteswritten < contlen)
+                { return byteswritten; }
+            }
+        }
+    }
+    return 0;
 }
 

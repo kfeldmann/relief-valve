@@ -79,25 +79,25 @@
 int
 create_char_buffer (char_buffer_t *bufptr, size_t size)
 {
-	int status = 0;
+    int status = 0;
 
-	if (bufptr == NULL)
-	{
-		status = errno = EFAULT;
-		goto end;
-	}
-	if (bufptr->memory != NULL) free (bufptr->memory);
-	bufptr->memory = (char *)malloc (size);
-	if (bufptr->memory == NULL) status = errno;
-	else
-	{
-		*(bufptr->memory) = '\0';
-		bufptr->ptr = bufptr->uptr = bufptr->memory;
-		bufptr->size = size;
-		bufptr->space_remaining = size;
-	}
+    if (bufptr == NULL)
+    {
+        status = errno = EFAULT;
+        goto end;
+    }
+    if (bufptr->memory != NULL) free (bufptr->memory);
+    bufptr->memory = (char *)malloc (size);
+    if (bufptr->memory == NULL) status = errno;
+    else
+    {
+        *(bufptr->memory) = '\0';
+        bufptr->ptr = bufptr->uptr = bufptr->memory;
+        bufptr->size = size;
+        bufptr->space_remaining = size;
+    }
 end:
-	return status;
+    return status;
 }
 
 
@@ -107,13 +107,13 @@ end:
 void
 destroy_char_buffer (char_buffer_t *bufptr)
 {
-	if (bufptr != NULL)
-	{
-		if (bufptr->memory != NULL)
-		{
-			free (bufptr->memory);
-		}
-	}
+    if (bufptr != NULL)
+    {
+        if (bufptr->memory != NULL)
+        {
+            free (bufptr->memory);
+        }
+    }
 }
 
 
@@ -133,36 +133,36 @@ destroy_char_buffer (char_buffer_t *bufptr)
 int
 resize_char_buffer (char_buffer_t *bufptr, long sizedelta)
 {
-	int status = 0;
-	size_t newsize;
-	size_t offset;
-	size_t uoffset;
+    int status = 0;
+    size_t newsize;
+    size_t offset;
+    size_t uoffset;
 
-	if (!sizedelta) goto end;
-	if (sizedelta < 0)
-	{
-		/* we can only shrink remaining space, not used space */
-		if ((long)(bufptr->space_remaining) + sizedelta < 0)
-		{
-			status = -1;
-			goto end;
-		}
-	}
-	newsize = (size_t)((long)(bufptr->size) + sizedelta);
-	offset = bufptr->ptr - bufptr->memory;
-	uoffset = bufptr->uptr - bufptr->memory;
+    if (!sizedelta) goto end;
+    if (sizedelta < 0)
+    {
+        /* we can only shrink remaining space, not used space */
+        if ((long)(bufptr->space_remaining) + sizedelta < 0)
+        {
+            status = -1;
+            goto end;
+        }
+    }
+    newsize = (size_t)((long)(bufptr->size) + sizedelta);
+    offset = bufptr->ptr - bufptr->memory;
+    uoffset = bufptr->uptr - bufptr->memory;
 
-	bufptr->memory = (char *)realloc (bufptr->memory, newsize);
-	if (bufptr->memory == NULL) status = errno;
-	else
-	{
-		bufptr->size = newsize;
-		bufptr->space_remaining += sizedelta;
-		bufptr->ptr = bufptr->memory + offset;
-		bufptr->uptr = bufptr->memory + uoffset;
-	}
+    bufptr->memory = (char *)realloc (bufptr->memory, newsize);
+    if (bufptr->memory == NULL) status = errno;
+    else
+    {
+        bufptr->size = newsize;
+        bufptr->space_remaining += sizedelta;
+        bufptr->ptr = bufptr->memory + offset;
+        bufptr->uptr = bufptr->memory + uoffset;
+    }
 end:
-	return status;
+    return status;
 }
 
 
@@ -176,17 +176,17 @@ end:
 int
 append_to_char_buffer (char_buffer_t *bufptr, char *message)
 {
-	int status = 0;
-	int slen = strlen (message);
+    int status = 0;
+    int slen = strlen (message);
 
-	if (slen > bufptr->space_remaining)
-	{
-		status = errno = ENOBUFS;
-	} else {
-		bufptr->ptr = stpcpy (bufptr->ptr, message);
-		bufptr->space_remaining -= slen;
-	}
-	return status;
+    if (slen > bufptr->space_remaining)
+    {
+        status = errno = ENOBUFS;
+    } else {
+        bufptr->ptr = stpcpy (bufptr->ptr, message);
+        bufptr->space_remaining -= slen;
+    }
+    return status;
 }
 
 
@@ -201,28 +201,28 @@ append_to_char_buffer (char_buffer_t *bufptr, char *message)
 int
 read_fd_into_char_buffer (char_buffer_t *bufptr, int fd)
 {
-	int status = 0;
-	int readbytes;
+    int status = 0;
+    int readbytes;
     char overflow[PIPE_BUF + 1];
-	if (bufptr->space_remaining > 0)
-	{
-		readbytes = read (fd, bufptr->ptr,
-		  min(PIPE_BUF, bufptr->space_remaining));
-	}
-	else
-	{
-		read (fd, overflow, PIPE_BUF);
-		readbytes = -2;
-		status = -1;
-	}
-	if (readbytes > 0)
-	{
-		bufptr->space_remaining -= readbytes;
-		bufptr->ptr += readbytes;
-		*(bufptr->ptr) = '\0';
-	}
-	else if (readbytes == -1) status = errno;
-	return status;
+    if (bufptr->space_remaining > 0)
+    {
+        readbytes = read (fd, bufptr->ptr,
+          min(PIPE_BUF, bufptr->space_remaining));
+    }
+    else
+    {
+        read (fd, overflow, PIPE_BUF);
+        readbytes = -2;
+        status = -1;
+    }
+    if (readbytes > 0)
+    {
+        bufptr->space_remaining -= readbytes;
+        bufptr->ptr += readbytes;
+        *(bufptr->ptr) = '\0';
+    }
+    else if (readbytes == -1) status = errno;
+    return status;
 }
 
 
@@ -239,24 +239,24 @@ read_fd_into_char_buffer (char_buffer_t *bufptr, int fd)
 int
 clear_char_buffer (char_buffer_t *bufptr, size_t resize_to)
 {
-	int status = 0;
+    int status = 0;
 
-	if (resize_to > 0 && resize_to != bufptr->size)
-	{
-		bufptr->memory = (char *)realloc (bufptr->memory, resize_to);
-		if (bufptr->memory == NULL)
-		{
-			status = errno;
-			goto end;
-		} else {
-			bufptr->size = resize_to;
-		}
-	}
-	*(bufptr->memory) = '\0';
-	bufptr->ptr = bufptr->uptr = bufptr->memory;
-	bufptr->space_remaining = bufptr->size;
+    if (resize_to > 0 && resize_to != bufptr->size)
+    {
+        bufptr->memory = (char *)realloc (bufptr->memory, resize_to);
+        if (bufptr->memory == NULL)
+        {
+            status = errno;
+            goto end;
+        } else {
+            bufptr->size = resize_to;
+        }
+    }
+    *(bufptr->memory) = '\0';
+    bufptr->ptr = bufptr->uptr = bufptr->memory;
+    bufptr->space_remaining = bufptr->size;
 end:
-	return status;
+    return status;
 }
 
 
@@ -266,7 +266,7 @@ end:
 size_t
 get_char_buffer_size (char_buffer_t *bufptr)
 {
-	return bufptr->size;
+    return bufptr->size;
 }
 
 
@@ -276,7 +276,7 @@ get_char_buffer_size (char_buffer_t *bufptr)
 size_t
 get_char_buffer_space (char_buffer_t *bufptr)
 {
-	return bufptr->space_remaining;
+    return bufptr->space_remaining;
 }
 
 
@@ -286,8 +286,8 @@ get_char_buffer_space (char_buffer_t *bufptr)
 size_t
 get_char_buffer_contlen (char_buffer_t *bufptr)
 {
-	return bufptr->size - bufptr->space_remaining
-	  - (bufptr->uptr - bufptr->memory);
+    return bufptr->size - bufptr->space_remaining
+      - (bufptr->uptr - bufptr->memory);
 }
 
 
@@ -297,7 +297,7 @@ get_char_buffer_contlen (char_buffer_t *bufptr)
 char *
 get_char_buffer_read_ptr (char_buffer_t *bufptr)
 {
-	return bufptr->uptr;
+    return bufptr->uptr;
 }
 
 
@@ -308,7 +308,7 @@ void
 inc_char_buffer_unread_ptr (char_buffer_t *bufptr, int offset)
 {
     if (offset < (bufptr->size - (bufptr->uptr - bufptr->memory)))
-	{ bufptr->uptr += offset; }
+    { bufptr->uptr += offset; }
 }
 
 

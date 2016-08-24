@@ -37,11 +37,11 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 typedef struct
 char_buffer_struct
 {
-	char *memory;
-	size_t size;
-	size_t space_remaining;
-	char *ptr; /* append pointer */
-	char *uptr; /* unread pointer */
+    char *memory;
+    size_t size;
+    size_t space_remaining;
+    char *ptr; /* append pointer */
+    char *uptr; /* unread pointer */
 }
 char_buffer_t;
 
