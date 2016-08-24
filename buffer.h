@@ -41,6 +41,7 @@ char_buffer_struct
 	size_t size;
 	size_t space_remaining;
 	char *ptr; /* append pointer */
+	char *uptr; /* unread pointer */
 }
 char_buffer_t;
 
@@ -54,6 +55,7 @@ extern size_t get_char_buffer_size (char_buffer_t*);
 extern size_t get_char_buffer_space (char_buffer_t*);
 extern size_t get_char_buffer_contlen (char_buffer_t*);
 extern char * get_char_buffer_read_ptr (char_buffer_t*);
+extern void inc_char_buffer_unread_ptr (char_buffer_t*, int);
 
 #endif /* _BUFFER_H_ Brackets this whole file */
 

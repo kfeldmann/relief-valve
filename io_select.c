@@ -35,8 +35,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/select.h>
 #include <unistd.h>
 #include <limits.h>
+#include <errno.h>
 #include "buffer.h"
 #include "io_select.h"
+
+#undef min
+#define min(x,y) ((x) < (y) ? (x) : (y))
 
 
 /**********************************************************************
@@ -72,6 +76,7 @@ max_int (int *ints, int intcount)
 ** Return value:
 **   0 on success
 **  -1 if select() fails
+**  -2 if throwing away data (buffer full)
 **  -3 if no fd's became readable before the timeout
 **   value of the bad fd on failure (e.g. if stderr encountered an
 **     error, the return value would be 2)
@@ -82,6 +87,7 @@ read_readable (int *fds, int fdcount, int timeoutsec, char_buffer_t *ls_buffer)
 	fd_set readfds, errorfds;
 	struct timeval timeout;
 	int i, readycount;
+    int status;
 
 	FD_ZERO (&readfds);
 	FD_ZERO (&errorfds);
@@ -95,7 +101,17 @@ read_readable (int *fds, int fdcount, int timeoutsec, char_buffer_t *ls_buffer)
 
 	readycount = select (max_int(fds, fdcount) + 1,
 	  &readfds, NULL, &errorfds, &timeout);
-	if (readycount == -1) return -1;
+	if (readycount == -1)
+	{
+		if (errno != EAGAIN && errno != EINTR)
+		{
+			return -1;
+		}
+		else
+		{
+			return -3;
+		}
+	}
 	if (readycount == 0) return -3;
 	if (readycount > 0)
 	{
@@ -104,7 +120,10 @@ read_readable (int *fds, int fdcount, int timeoutsec, char_buffer_t *ls_buffer)
 			if (FD_ISSET (fds[i], &errorfds)) return fds[i];
 			if (FD_ISSET (fds[i], &readfds))
 			{
-				if (read_fd_into_char_buffer (ls_buffer, fds[i]) != 0)
+				status = read_fd_into_char_buffer (ls_buffer, fds[i]);
+				if (status == -1)
+				{ return -2; }
+				else if (status != 0)
 				{ return fds[i]; }
 			}
 		}
@@ -114,19 +133,19 @@ read_readable (int *fds, int fdcount, int timeoutsec, char_buffer_t *ls_buffer)
 
 
 /**********************************************************************
-** write_writable (int*, int, int, char_buffer_t*)
+** write_writable (int*, int, int, char_buffer_t*, int)
 ** 
 ** Call select() on a list of file descriptors. If any are writable,
 ** write the contents of the provided char_buffer_t to each writable
 ** descriptor.
 ** 
 ** Return value:
-**   0 on success
-**  -1 if select() fails
-**  -2 if only part of the buffer was written to the descriptor
-**  -3 if no fd's became writable before the timeout
-**   value of the bad fd on failure (e.g. if stderr encountered an
-**     error, the return value would be 2)
+**   0  on success
+**  -1  if select() fails or if any FDs are in error status
+**  -2  if only part of the buffer was written to the descriptor
+**  -3  if no fd's became writable before the timeout
+**   n  where n = number of bytes written, if less than the full
+**      buffer length
 */
 int
 write_writable (int *fds, int fdcount, int timeoutsec, char_buffer_t *ls_buffer)
@@ -135,6 +154,7 @@ write_writable (int *fds, int fdcount, int timeoutsec, char_buffer_t *ls_buffer)
 	struct timeval timeout;
 	int i, readycount;
 	ssize_t byteswritten;
+    ssize_t contlen;
 
 	FD_ZERO (&writefds);
 	FD_ZERO (&errorfds);
@@ -146,23 +166,32 @@ write_writable (int *fds, int fdcount, int timeoutsec, char_buffer_t *ls_buffer)
 	timeout.tv_sec = timeoutsec;
 	timeout.tv_usec = 0;
 
+	contlen = get_char_buffer_contlen (ls_buffer);
+
 	readycount = select (max_int(fds, fdcount) + 1,
 	  NULL, &writefds, &errorfds, &timeout);
-	if (readycount == -1) return -1;
+	if (readycount == -1)
+	{
+		if (errno != EAGAIN && errno != EINTR)
+		{ return -1; }
+		else
+		{ return -3; }
+	}
 	if (readycount == 0) return -3;
 	if (readycount > 0)
 	{
 		for (i = 0; i < fdcount; i++)
 		{
-			if (FD_ISSET (fds[i], &errorfds)) return fds[i];
+			if (FD_ISSET (fds[i], &errorfds)) return -1;
 			if (FD_ISSET (fds[i], &writefds))
 			{
 				byteswritten = write (fds[i],
 				 get_char_buffer_read_ptr (ls_buffer),
-				 get_char_buffer_contlen (ls_buffer));
-				if (byteswritten == -1) return fds[i];
-				if (byteswritten < get_char_buffer_contlen (ls_buffer))
-				{ return -2; }
+				 min(PIPE_BUF, contlen));
+				if (byteswritten == -1) return -1;
+				if (byteswritten == 0 && contlen > 0) return -3;
+				if (byteswritten < contlen)
+				{ return byteswritten; }
 			}
 		}
 	}

@@ -4,16 +4,17 @@
 ** 
 ** KPF - 2014-07-26
 ** 
-** create_char_buffer         (char_buffer_t *bufptr, size_t size)
-** destroy_char_buffer        (char_buffer_t *bufptr)
-** resize_char_buffer         (char_buffer_t *bufptr, long  sizedelta)
-** append_to_char_buffer      (char_buffer_t *bufptr, char *message)
-** read_fd_into_char_buffer   (char_buffer_t *bufptr, int fd)
-** clear_char_buffer          (char_buffer_t *bufptr, size_t resize_to)
-** get_char_buffer_size       (char_buffer_t *bufptr)
-** get_char_buffer_space      (char_buffer_t *bufptr)
-** get_char_buffer_contlen    (char_buffer_t *bufptr)
-** get_char_buffer_read_ptr   (char_buffer_t *bufptr)
+** create_char_buffer          (char_buffer_t *bufptr, size_t size)
+** destroy_char_buffer         (char_buffer_t *bufptr)
+** resize_char_buffer          (char_buffer_t *bufptr, long  sizedelta)
+** append_to_char_buffer       (char_buffer_t *bufptr, char *message)
+** read_fd_into_char_buffer    (char_buffer_t *bufptr, int fd)
+** clear_char_buffer           (char_buffer_t *bufptr, size_t resize_to)
+** get_char_buffer_size        (char_buffer_t *bufptr)
+** get_char_buffer_space       (char_buffer_t *bufptr)
+** get_char_buffer_contlen     (char_buffer_t *bufptr)
+** get_char_buffer_read_ptr    (char_buffer_t *bufptr)
+** inc_char_buffer_unread_ptr  (char_buffer_t *bufptr, int offset)
 **
 ** Copyright (c) 2016, Kris Feldmann
 ** All rights reserved.
@@ -55,9 +56,13 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
-//#include <malloc/malloc.h>
+#include <limits.h>
 #include <malloc.h>
 #include "buffer.h"
+
+#undef min
+#define min(x,y) ((x) < (y) ? (x) : (y))
+
 
 
 /**********************************************************************
@@ -87,7 +92,7 @@ create_char_buffer (char_buffer_t *bufptr, size_t size)
 	else
 	{
 		*(bufptr->memory) = '\0';
-		bufptr->ptr = bufptr->memory;
+		bufptr->ptr = bufptr->uptr = bufptr->memory;
 		bufptr->size = size;
 		bufptr->space_remaining = size;
 	}
@@ -131,6 +136,7 @@ resize_char_buffer (char_buffer_t *bufptr, long sizedelta)
 	int status = 0;
 	size_t newsize;
 	size_t offset;
+	size_t uoffset;
 
 	if (!sizedelta) goto end;
 	if (sizedelta < 0)
@@ -144,6 +150,7 @@ resize_char_buffer (char_buffer_t *bufptr, long sizedelta)
 	}
 	newsize = (size_t)((long)(bufptr->size) + sizedelta);
 	offset = bufptr->ptr - bufptr->memory;
+	uoffset = bufptr->uptr - bufptr->memory;
 
 	bufptr->memory = (char *)realloc (bufptr->memory, newsize);
 	if (bufptr->memory == NULL) status = errno;
@@ -152,6 +159,7 @@ resize_char_buffer (char_buffer_t *bufptr, long sizedelta)
 		bufptr->size = newsize;
 		bufptr->space_remaining += sizedelta;
 		bufptr->ptr = bufptr->memory + offset;
+		bufptr->uptr = bufptr->memory + uoffset;
 	}
 end:
 	return status;
@@ -187,6 +195,7 @@ append_to_char_buffer (char_buffer_t *bufptr, char *message)
 ** 
 ** Return values:
 **   0   success
+**  -1   buffer full, threw away data that was read
 **   *   errno from read()
 */
 int
@@ -194,13 +203,25 @@ read_fd_into_char_buffer (char_buffer_t *bufptr, int fd)
 {
 	int status = 0;
 	int readbytes;
-	readbytes = read (fd, bufptr->ptr, bufptr->space_remaining);
+    char overflow[PIPE_BUF + 1];
+	if (bufptr->space_remaining > 0)
+	{
+		readbytes = read (fd, bufptr->ptr,
+		  min(PIPE_BUF, bufptr->space_remaining));
+	}
+	else
+	{
+		read (fd, overflow, PIPE_BUF);
+		readbytes = -2;
+		status = -1;
+	}
 	if (readbytes > 0)
 	{
 		bufptr->space_remaining -= readbytes;
 		bufptr->ptr += readbytes;
 		*(bufptr->ptr) = '\0';
-	} else if (readbytes == -1) status = errno;
+	}
+	else if (readbytes == -1) status = errno;
 	return status;
 }
 
@@ -232,7 +253,7 @@ clear_char_buffer (char_buffer_t *bufptr, size_t resize_to)
 		}
 	}
 	*(bufptr->memory) = '\0';
-	bufptr->ptr = bufptr->memory;
+	bufptr->ptr = bufptr->uptr = bufptr->memory;
 	bufptr->space_remaining = bufptr->size;
 end:
 	return status;
@@ -265,7 +286,8 @@ get_char_buffer_space (char_buffer_t *bufptr)
 size_t
 get_char_buffer_contlen (char_buffer_t *bufptr)
 {
-	return bufptr->size - bufptr->space_remaining;
+	return bufptr->size - bufptr->space_remaining
+	  - (bufptr->uptr - bufptr->memory);
 }
 
 
@@ -275,7 +297,18 @@ get_char_buffer_contlen (char_buffer_t *bufptr)
 char *
 get_char_buffer_read_ptr (char_buffer_t *bufptr)
 {
-	return bufptr->memory;
+	return bufptr->uptr;
+}
+
+
+/**********************************************************************
+** inc_char_buffer_unread_ptr  (char_buffer_t *bufptr, int offset)
+*/
+void
+inc_char_buffer_unread_ptr (char_buffer_t *bufptr, int offset)
+{
+    if (offset < (bufptr->size - (bufptr->uptr - bufptr->memory)))
+	{ bufptr->uptr += offset; }
 }
 
 

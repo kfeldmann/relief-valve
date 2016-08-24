@@ -40,13 +40,16 @@
 #include <stdlib.h> /* exit */
 #include <unistd.h> /* getpid */
 #include <stdio.h> /* stdin, stdout, stderr */
+#include <fcntl.h> /* fcntl */
 #include <errno.h>
 #include <malloc.h>
 #include "io_select.h"
 #include "buffer.h"
 
-#define BUFFERSIZE 8192
-#define MAX_BUFFERSIZE 1048576 /* 1M */
+// #define BUFFERSIZE 16384
+// #define MAX_BUFFERSIZE 1048576 /* 1M */
+#define BUFFERSIZE 4096
+#define MAX_BUFFERSIZE 16384
 #define SELECT_TIMEOUT_SEC 1
 
 extern FILE *stdin;
@@ -91,6 +94,7 @@ main (int argc, char *argv[])
 
     int io_status;
     int fds[1];
+    int i;
 
     /* log stream buffer */
     char_buffer_t *ls_buffer = malloc (sizeof (char_buffer_t));
@@ -105,6 +109,14 @@ main (int argc, char *argv[])
     {
         exit (errno);
     }
+
+    /* set file descriptors to non-blocking */
+    fcntl(fileno(stdin), F_SETFL,
+      fcntl(fileno(stdin), F_GETFL) | O_NONBLOCK);
+    fcntl(fileno(stdout), F_SETFL,
+      fcntl(fileno(stdout), F_GETFL) | O_NONBLOCK);
+    fcntl(fileno(stderr), F_SETFL,
+      fcntl(fileno(stderr), F_GETFL) | O_NONBLOCK);
 
     /* main loop: read from stdin and write to stdout */
     while (1)
@@ -134,7 +146,7 @@ main (int argc, char *argv[])
             else
             {
                 fprintf (stderr,
-                    "ERROR: rv[%d] Buffer is at max size. Data being lost.\n", getpid());
+                    "ERROR: rv[%d] buffer is at max size.\n", getpid());
             }
         }
 
@@ -142,29 +154,62 @@ main (int argc, char *argv[])
 
         fds[0] = fileno(stdin);
         io_status = read_readable (fds, 1, SELECT_TIMEOUT_SEC, ls_buffer);
+        if (io_status == -2)
+        {
+            fprintf (stderr,
+                "ERROR: rv[%d] buffer full. Throwing away data.\n", getpid());
+        }
+
+        fprintf (stderr,
+          "DEBUG: rv[%d] content length after reading: %d\n",
+          getpid(), (int)get_char_buffer_contlen (ls_buffer));
 
         /* Write buffer to output if writable */
-        fds[0] = fileno(stdout);
-        io_status = write_writable (fds, 1, SELECT_TIMEOUT_SEC, ls_buffer);
-        if (io_status == -1)
+        /*
+        ** Handle writes twice as often as reads to avoid
+        ** filling buffer faster than we can empty it.
+        */
+        for (i=0; i<2; i++)
         {
-            fprintf (stderr,
-                "ERROR: rv[%d] select() failed (errno = %d).\n", getpid(), errno);
-        }
-        else if (io_status == -3)
-        {
-            fprintf (stderr,
-                "ERROR: rv[%d] stdout is not writable.\n", getpid());
-        }
-        else
-        {
-            if (clear_char_buffer (ls_buffer, 0) != 0)
+            fds[0] = fileno(stdout);
+            io_status = write_writable (
+              fds, 1, SELECT_TIMEOUT_SEC, ls_buffer);
+            if (io_status == -1)
             {
-                exit (errno);
+                fprintf (stderr,
+                    "ERROR: rv[%d] select() failed (errno = %d).\n", getpid(), errno);
             }
-        }
+            else if (io_status == -3)
+            {
+                fprintf (stderr,
+                    "ERROR: rv[%d] stdout is not writable.\n", getpid());
+            }
+            else
+            {
+                if (io_status > 0)
+                {
+                    fprintf (stderr,
+                      "DEBUG: rv[%d] partial write of %d bytes.\n",
+                      getpid(), io_status);
+                    inc_char_buffer_unread_ptr (ls_buffer, io_status);
+                    fprintf (stderr,
+                      "DEBUG: rv[%d] remaining content length: %d\n",
+                      getpid(), (int)get_char_buffer_contlen (ls_buffer));
+                }
+                else
+                {
+                    fprintf (stderr,
+                      "DEBUG: rv[%d] wrote all data. Clearing buffer.\n", getpid());
+                    if (clear_char_buffer (ls_buffer, 0) != 0)
+                    {
+                        exit (errno);
+                    }
+                }
+            }
 
-    } /* while loop */
+        } /* for loop - write twice */
+
+    } /* while loop - forever */
 
     exit (EXIT_SUCCESS);
 }
