@@ -41,15 +41,18 @@
 #include <unistd.h> /* getpid */
 #include <stdio.h> /* stdin, stdout, stderr */
 #include <fcntl.h> /* fcntl */
+#include <limits.h> /* PIPE_BUF */
 #include <errno.h>
 #include <malloc.h>
 #include "io_select.h"
 #include "buffer.h"
 
-// #define BUFFERSIZE 16384
-// #define MAX_BUFFERSIZE 1048576 /* 1M */
-#define BUFFERSIZE 4096
-#define MAX_BUFFERSIZE 16384
+#define BUFFERSIZE 4*PIPE_BUF /* 16k */
+#define MAX_BUFFERSIZE 1024*PIPE_BUF /* 4M */
+/* Smaller sizes for testing only
+#define BUFFERSIZE 1*PIPE_BUF
+#define MAX_BUFFERSIZE 4*PIPE_BUF
+*/
 #define SELECT_TIMEOUT_SEC 1
 
 extern FILE *stdin;
@@ -146,7 +149,7 @@ main (int argc, char *argv[])
             else
             {
                 fprintf (stderr,
-                    "ERROR: rv[%d] buffer is at max size.\n", getpid());
+                  "ERROR: rv[%d] buffer is at max size.\n", getpid());
             }
         }
 
@@ -157,12 +160,14 @@ main (int argc, char *argv[])
         if (io_status == -2)
         {
             fprintf (stderr,
-                "ERROR: rv[%d] buffer full. Throwing away data.\n", getpid());
+              "ERROR: rv[%d] buffer full. Throwing away data.\n", getpid());
         }
 
+        /*
         fprintf (stderr,
           "DEBUG: rv[%d] content length after reading: %d\n",
           getpid(), (int)get_char_buffer_contlen (ls_buffer));
+        */
 
         /* Write buffer to output if writable */
         /*
@@ -177,29 +182,37 @@ main (int argc, char *argv[])
             if (io_status == -1)
             {
                 fprintf (stderr,
-                    "ERROR: rv[%d] select() failed (errno = %d).\n", getpid(), errno);
+                  "ERROR: rv[%d] select() failed (errno = %d).\n",
+                  getpid(), errno);
             }
             else if (io_status == -3)
             {
                 fprintf (stderr,
-                    "ERROR: rv[%d] stdout is not writable.\n", getpid());
+                  "ERROR: rv[%d] stdout is not writable.\n", getpid());
             }
             else
             {
                 if (io_status > 0)
                 {
+                    /*
                     fprintf (stderr,
                       "DEBUG: rv[%d] partial write of %d bytes.\n",
                       getpid(), io_status);
+                    */
                     inc_char_buffer_unread_ptr (ls_buffer, io_status);
+                    /*
                     fprintf (stderr,
                       "DEBUG: rv[%d] remaining content length: %d\n",
                       getpid(), (int)get_char_buffer_contlen (ls_buffer));
+                    */
                 }
                 else
                 {
+                    /*
                     fprintf (stderr,
-                      "DEBUG: rv[%d] wrote all data. Clearing buffer.\n", getpid());
+                      "DEBUG: rv[%d] wrote all data. Clearing buffer.\n",
+                      getpid());
+                    */
                     if (clear_char_buffer (ls_buffer, 0) != 0)
                     {
                         exit (errno);
